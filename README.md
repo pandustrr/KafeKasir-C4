@@ -10,5 +10,5 @@ Anggota Kelompok
 | --- | --- |
 |Pandu Satria|232410103008|
 |Mohammad Faisal Nur Hidayat|232410103091|
-
+|Abdurrohman Qoim Haqqi Muhammad|232410103082|
 
