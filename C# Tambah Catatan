@@ -1,0 +1,83 @@
+using Npgsql;
+using System;
+using System.Data;
+using System.Windows.Forms;
+
+namespace Pencatatan
+{
+    public partial class TambahCatatan : Form
+    {
+        private string connectionString = "Host=localhost;Username=postgres;Password=1234;Database=PBO";
+        private PencatatanKeuangan pencatatanKeuanganForm;
+
+        public TambahCatatan(PencatatanKeuangan pencatatanKeuanganForm)
+        {
+            InitializeComponent();
+            this.pencatatanKeuanganForm = pencatatanKeuanganForm;
+        }
+
+        private void kryptonButton2_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
+        public void kryptonButton1_Click(object sender, EventArgs e)
+        {
+            string tanggal = textBox1.Text;
+            string usernamePegawai = textBox2.Text;
+
+            using (NpgsqlConnection conn = new NpgsqlConnection(connectionString))
+            {
+                conn.Open();
+
+                string queryPegawai = "SELECT id_pegawai FROM pegawai WHERE username = @username";
+
+                using (NpgsqlCommand cmdPegawai = new NpgsqlCommand(queryPegawai, conn))
+                {
+                    cmdPegawai.Parameters.AddWithValue("username", usernamePegawai);
+                    object idPegawaiResult = cmdPegawai.ExecuteScalar();
+                    if (idPegawaiResult != DBNull.Value)
+                    {
+                        int idPegawai = Convert.ToInt32(idPegawaiResult);
+
+                        string queryPendapatan = "SELECT id_pendapatan FROM pendapatan WHERE tanggal_pendapatan = @tanggal";
+
+                        using (NpgsqlCommand cmdPendapatan = new NpgsqlCommand(queryPendapatan, conn))
+                        {
+                            cmdPendapatan.Parameters.AddWithValue("tanggal", DateTime.Parse(tanggal));
+                            object idPendapatanResult = cmdPendapatan.ExecuteScalar();
+                            if (idPendapatanResult != DBNull.Value)
+                            {
+                                int idPendapatan = Convert.ToInt32(idPendapatanResult);
+
+                                string insertCatatan = "INSERT INTO catatan_keuangan (tanggal_catatan, pegawai_id_pegawai, pendapatan_id_pendapatan) VALUES (@tanggal_catatan, @id_pegawai, @id_pendapatan)";
+
+                                using (NpgsqlCommand insertCmd = new NpgsqlCommand(insertCatatan, conn))
+                                {
+                                    insertCmd.Parameters.AddWithValue("tanggal_catatan", DateTime.Parse(tanggal));
+                                    insertCmd.Parameters.AddWithValue("id_pegawai", idPegawai);
+                                    insertCmd.Parameters.AddWithValue("id_pendapatan", idPendapatan);
+
+                                    insertCmd.ExecuteNonQuery();
+                                    MessageBox.Show("Catatan keuangan berhasil ditambahkan.");
+
+                                    this.Close();
+
+                                    pencatatanKeuanganForm.LoadData();
+                                }
+                            }
+                            else
+                            {
+                                MessageBox.Show("Tidak ada pendapatan pada tanggal tersebut.");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Pegawai dengan username tersebut tidak ditemukan.");
+                    }
+                }
+            }
+        }
+    }
+}
