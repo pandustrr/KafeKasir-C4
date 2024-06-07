@@ -1,0 +1,15 @@
+using System;
+using Npgsql;
+
+namespace KafeKasir
+{
+    public class Database
+    {
+        private static string connString = "Host=localhost;Username=postgres;Password=;Database=PBO";
+
+        public static NpgsqlConnection GetConnection()
+        {
+            return new NpgsqlConnection(connString);
+        }
+    }
+}
