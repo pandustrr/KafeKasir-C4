@@ -1,0 +1,224 @@
+using Npgsql;
+using System;
+
+namespace KafeKasir
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            int userId = 0;
+            Console.WriteLine("Selamat datang di KafeKasir!");
+
+            while (true)
+            {
+                Console.WriteLine("1. Registrasi");
+                Console.WriteLine("2. Login");
+                Console.Write("Pilih opsi: ");
+                int choice = int.Parse(Console.ReadLine());
+
+                if (choice == 1)
+                {
+                    User.Register();
+                }
+                else if (choice == 2)
+                {
+                    if (User.Login(out userId))
+                    {
+                        Console.WriteLine("Login berhasil!");
+                        MainMenu(userId);
+                        break;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Username atau Password salah.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Opsi tidak valid.");
+                }
+            }
+        }
+
+        static void MainMenu(int userId)
+        {
+            while (true)
+            {
+                Console.WriteLine("Main Menu:");
+                Console.WriteLine("1. Profil Pegawai");
+                Console.WriteLine("2. Menu");
+                Console.WriteLine("3. Catatan Keuangan");
+                Console.WriteLine("4. Logout");
+                Console.Write("Pilih opsi: ");
+                int choice = int.Parse(Console.ReadLine());
+
+                switch (choice)
+                {
+                    case 1:
+                        ProfileMenu(userId);
+                        break;
+                    case 2:
+                        MenuMenu(userId);
+                        break;
+                    case 3:
+                        CatatanKeuanganMenu(userId);
+                        break;
+                    case 4:
+                        Console.WriteLine("Logout berhasil!");
+                        return;
+                    default:
+                        Console.WriteLine("Opsi tidak valid.");
+                        break;
+                }
+            }
+        }
+
+        // Implementasi fitur-fitur lainnya (Profil Pegawai, Menu, Catatan Keuangan)
+        static void CatatanKeuanganMenu(int userId)
+        {
+            while (true)
+            {
+                Console.WriteLine("Catatan Keuangan:");
+                Console.WriteLine("1. Lihat Catatan Keuangan");
+                Console.WriteLine("2. Buat Catatan Keuangan");
+                Console.WriteLine("3. Kembali ke Menu Utama");
+                Console.Write("Pilih opsi: ");
+                int choice = int.Parse(Console.ReadLine());
+
+                switch (choice)
+                {
+                    case 1:
+                        CatatanKeuangan.DisplayFinancialRecords();
+                        break;
+                    case 2:
+                        CatatanKeuangan.CreateFinancialRecord(userId);
+                        break;
+                    case 3:
+                        return;
+                    default:
+                        Console.WriteLine("Opsi tidak valid.");
+                        break;
+                }
+            }
+        }
+
+        static void MenuMenu(int userId)
+        {
+            Menu.DisplayCategories();
+            Console.Write("Pilih kategori: ");
+            int categoryChoice = int.Parse(Console.ReadLine());
+            Menu.DisplayMenuItems(categoryChoice);
+
+            Console.Write("Ingin memesan? (y/n): ");
+            if (Console.ReadLine().ToLower() == "y")
+            {
+                Menu.PlaceOrder(userId);
+            }
+        }
+
+        private static int SaveTransaction(int userId, int pelangganId)
+        {
+            Console.WriteLine("Pilih metode pembayaran:");
+            Console.WriteLine("1. Tunai");
+            Console.WriteLine("2. Non Tunai");
+            int metodePembayaran = int.Parse(Console.ReadLine());
+
+            using (var conn = Database.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("INSERT INTO transaksi (pegawai_id_pegawai, pelanggan_id_pelanggan, metode_pembayaran_id_pembayaran) VALUES (@userId, @pelangganId, @metodePembayaran) RETURNING id_transaksi", conn))
+                {
+                    cmd.Parameters.AddWithValue("userId", userId);
+                    cmd.Parameters.AddWithValue("pelangganId", pelangganId);
+                    cmd.Parameters.AddWithValue("metodePembayaran", metodePembayaran);
+                    return (int)cmd.ExecuteScalar();
+                }
+            }
+        }
+
+        private static void DisplayOrderSummary(List<OrderItem> orderItems, int transaksiId)
+        {
+            Console.WriteLine("Order Summary:");
+            decimal totalHarga = 0;
+            foreach (var item in orderItems)
+            {
+                Console.WriteLine($"{item.NamaMenu} - {item.Harga} x {item.Jumlah}");
+                totalHarga += item.Harga * item.Jumlah;
+            }
+            Console.WriteLine($"Total Harga: {totalHarga}");
+
+            using (var conn = Database.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("SELECT t.tanggal_transaksi, p.username, pl.nama_pelanggan, mp.jenis_metode FROM transaksi t JOIN pegawai p ON t.pegawai_id_pegawai = p.id_pegawai JOIN pelanggan pl ON t.pelanggan_id_pelanggan = pl.id_pelanggan JOIN metode_pembayaran mp ON t.metode_pembayaran_id_pembayaran = mp.id_pembayaran WHERE t.id_transaksi = @transaksiId", conn))
+                {
+                    cmd.Parameters.AddWithValue("transaksiId", transaksiId);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            DateTime tanggal = reader.GetDateTime(0);
+                            string namaPegawai = reader.GetString(1);
+                            string namaPelanggan = reader.GetString(2);
+                            string metodePembayaran = reader.GetString(3);
+
+                            Console.WriteLine($"Tanggal: {tanggal}");
+                            Console.WriteLine($"Nama Pegawai: {namaPegawai}");
+                            Console.WriteLine($"Nama Pelanggan: {namaPelanggan}");
+                            Console.WriteLine($"Metode Pembayaran: {metodePembayaran}");
+                        }
+                    }
+                }
+            }
+        }
+
+
+
+
+        static void ProfileMenu(int userId)
+        {
+            while (true)
+            {
+                Console.WriteLine("Profil Pegawai:");
+                Console.WriteLine("1. Lihat Profil");
+                Console.WriteLine("2. Ubah Password");
+                Console.WriteLine("3. Hapus Akun");
+                Console.WriteLine("4. Kembali ke Menu Utama");
+                Console.Write("Pilih opsi: ");
+                int choice = int.Parse(Console.ReadLine());
+
+                switch (choice)
+                {
+                    case 1:
+                        Profile.ViewProfile(userId);
+                        break;
+                    case 2:
+                        Profile.ChangePassword(userId);
+                        break;
+                    case 3:
+                        Profile.DeleteAccount(userId);
+                        return; // Keluar dari profil setelah akun dihapus
+                    case 4:
+                        return;
+                    default:
+                        Console.WriteLine("Opsi tidak valid.");
+                        break;
+                }
+            }
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        }
+
+    }
+}
