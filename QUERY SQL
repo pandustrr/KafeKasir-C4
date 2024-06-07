@@ -119,9 +119,9 @@ INSERT INTO menu (nama_menu, harga, kategori_id_kategori, stok)
 VALUES ('Nasi Goreng', 25000, 1, 20),
        ('Es Teh', 8000, 2, 30),
        ('Kentang Goreng', 15000, 3, 15),
-       ('Mie Goreng', 12000, 4, 10),
-       ('Es Jeruk', 10000, 5, 35),
-       ('Nuget', 7000, 6, 40);
+       ('Mie Goreng', 12000, 1, 10),
+       ('Es Jeruk', 10000, 2, 35),
+       ('Nuget', 7000, 3, 40);
 
 -- Menyisipkan data ke dalam tabel transaksi
 INSERT INTO transaksi (pegawai_id_pegawai, pelanggan_id_pelanggan, metode_pembayaran_id_pembayaran)
