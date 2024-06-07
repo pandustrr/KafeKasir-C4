@@ -1,0 +1,199 @@
+using System;
+using System.Collections.Generic;
+using Npgsql;
+
+namespace KafeKasir
+{
+    public class Menu
+    {
+        public static void DisplayCategories()
+        {
+            Console.WriteLine("Kategori:");
+            Console.WriteLine("1. Makanan");
+            Console.WriteLine("2. Minuman");
+            Console.WriteLine("3. Snack");
+        }
+
+        public static void DisplayMenuItems(int categoryId)
+        {
+            using (var conn = Database.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("SELECT id_menu, nama_menu, harga, stok FROM menu WHERE kategori_id_kategori = @categoryId", conn))
+                {
+                    cmd.Parameters.AddWithValue("categoryId", categoryId);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            int idMenu = reader.GetInt32(0);
+                            string namaMenu = reader.GetString(1);
+                            decimal harga = reader.GetDecimal(2);
+                            int stok = reader.GetInt32(3);
+                            string status = stok > 0 ? "Available" : "Sold Out";
+                            Console.WriteLine($"{idMenu}. {namaMenu} - {harga} - {status}");
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void PlaceOrder(int userId)
+        {
+            List<OrderItem> orderItems = new List<OrderItem>();
+
+            while (true)
+            {
+                Console.Write("Masukkan ID menu yang ingin dipesan (atau 0 untuk selesai): ");
+                int menuId = int.Parse(Console.ReadLine());
+
+                if (menuId == 0)
+                {
+                    break;
+                }
+
+                Console.Write("Masukkan jumlah yang ingin dipesan: ");
+                int jumlah = int.Parse(Console.ReadLine());
+
+                using (var conn = Database.GetConnection())
+                {
+                    conn.Open();
+                    using (var cmd = new NpgsqlCommand("SELECT nama_menu, harga, stok FROM menu WHERE id_menu = @menuId", conn))
+                    {
+                        cmd.Parameters.AddWithValue("menuId", menuId);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                string namaMenu = reader.GetString(0);
+                                decimal harga = reader.GetDecimal(1);
+                                int stok = reader.GetInt32(2);
+
+                                if (stok >= jumlah)
+                                {
+                                    orderItems.Add(new OrderItem { MenuId = menuId, NamaMenu = namaMenu, Harga = harga, Jumlah = jumlah });
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Stok tidak mencukupi.");
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("Menu tidak ditemukan.");
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (orderItems.Count > 0)
+            {
+                Console.Write("Masukkan nama pelanggan: ");
+                string namaPelanggan = Console.ReadLine();
+
+                int pelangganId = SaveCustomer(namaPelanggan);
+                int transaksiId = SaveTransaction(userId, pelangganId);
+
+                SaveOrderDetails(orderItems, transaksiId);
+                DisplayOrderSummary(orderItems, transaksiId);
+            }
+        }
+
+        private static int SaveCustomer(string namaPelanggan)
+        {
+            using (var conn = Database.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("INSERT INTO pelanggan (nama_pelanggan) VALUES (@namaPelanggan) RETURNING id_pelanggan", conn))
+                {
+                    cmd.Parameters.AddWithValue("namaPelanggan", namaPelanggan);
+                    return (int)cmd.ExecuteScalar();
+                }
+            }
+        }
+
+        private static int SaveTransaction(int userId, int pelangganId)
+        {
+            Console.WriteLine("Pilih metode pembayaran:");
+            Console.WriteLine("1. Tunai");
+            Console.WriteLine("2. Non Tunai");
+            int metodePembayaran = int.Parse(Console.ReadLine());
+
+            using (var conn = Database.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("INSERT INTO transaksi (pegawai_id_pegawai, pelanggan_id_pelanggan, metode_pembayaran_id_pembayaran) VALUES (@userId, @pelangganId, @metodePembayaran) RETURNING id_transaksi", conn))
+                {
+                    cmd.Parameters.AddWithValue("userId", userId);
+                    cmd.Parameters.AddWithValue("pelangganId", pelangganId);
+                    cmd.Parameters.AddWithValue("metodePembayaran", metodePembayaran);
+                    return (int)cmd.ExecuteScalar();
+                }
+            }
+        }
+
+        private static void SaveOrderDetails(List<OrderItem> orderItems, int transaksiId)
+        {
+            using (var conn = Database.GetConnection())
+            {
+                conn.Open();
+                foreach (var item in orderItems)
+                {
+                    using (var cmd = new NpgsqlCommand("INSERT INTO detail_transaksi (menu_id_menu, transaksi_id_transaksi, jumlah_menu, total_harga, pendapatan_id_pendapatan) VALUES (@menuId, @transaksiId, @jumlah, @totalHarga, 1)", conn))
+                    {
+                        cmd.Parameters.AddWithValue("menuId", item.MenuId);
+                        cmd.Parameters.AddWithValue("transaksiId", transaksiId);
+                        cmd.Parameters.AddWithValue("jumlah", item.Jumlah);
+                        cmd.Parameters.AddWithValue("totalHarga", item.Jumlah * item.Harga);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+        }
+
+        private static void DisplayOrderSummary(List<OrderItem> orderItems, int transaksiId)
+        {
+            Console.WriteLine("Ringkasan Pesanan:");
+            decimal totalHarga = 0;
+            foreach (var item in orderItems)
+            {
+                Console.WriteLine($"{item.NamaMenu} - {item.Harga} x {item.Jumlah} = {item.Harga * item.Jumlah}");
+                totalHarga += item.Harga * item.Jumlah;
+            }
+
+            using (var conn = Database.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("SELECT p.nama_pelanggan, pe.username, mp.jenis_metode FROM transaksi t JOIN pelanggan p ON t.pelanggan_id_pelanggan = p.id_pelanggan JOIN pegawai pe ON t.pegawai_id_pegawai = pe.id_pegawai JOIN metode_pembayaran mp ON t.metode_pembayaran_id_pembayaran = mp.id_pembayaran WHERE t.id_transaksi = @transaksiId", conn))
+                {
+                    cmd.Parameters.AddWithValue("transaksiId", transaksiId);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            string namaPelanggan = reader.GetString(0);
+                            string namaPegawai = reader.GetString(1);
+                            string metodePembayaran = reader.GetString(2);
+
+                            Console.WriteLine($"Nama Pelanggan: {namaPelanggan}");
+                            Console.WriteLine($"Nama Pegawai: {namaPegawai}");
+                            Console.WriteLine($"Metode Pembayaran: {metodePembayaran}");
+                        }
+                    }
+                }
+            }
+
+            Console.WriteLine($"Total Pembayaran: {totalHarga}");
+        }
+    }
+
+    public class OrderItem
+    {
+        public int MenuId { get; set; }
+        public string NamaMenu { get; set; }
+        public decimal Harga { get; set; }
+        public int Jumlah { get; set; }
+    }
+}
+
