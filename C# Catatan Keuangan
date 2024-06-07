@@ -1,62 +1,56 @@
 using System;
+using System.Data;
+using System.Windows.Forms;
 using Npgsql;
 
-namespace KafeKasir
+namespace Pencatatan
 {
-    public class CatatanKeuangan
+    public partial class PencatatanKeuangan : Form
     {
-        public static void DisplayFinancialRecords()
+        public PencatatanKeuangan()
         {
-            using (var conn = Database.GetConnection())
+            InitializeComponent();
+            InitializeDataGridView();
+            LoadData();
+        }
+
+        private void InitializeDataGridView()
+        {
+            dataGridView1.Columns["Column1"].DataPropertyName = "id_catatan_keuangan";
+            dataGridView1.Columns["Column2"].DataPropertyName = "tanggal_catatan";
+            dataGridView1.Columns["Column3"].DataPropertyName = "username";
+            dataGridView1.Columns["Column4"].DataPropertyName = "total_pendapatan";
+        }
+
+        public void LoadData()
+        {
+            string connectionString = "Host=localhost;Username=postgres;Password=1234;Database=PBO";
+            string query = "SELECT id_catatan_keuangan, tanggal_catatan, pegawai.username, pendapatan.total_pendapatan FROM catatan_keuangan join pegawai on catatan_keuangan.pegawai_id_pegawai = pegawai.id_pegawai join pendapatan on catatan_keuangan.pendapatan_id_pendapatan = pendapatan.id_pendapatan";
+
+            try
             {
-                conn.Open();
-                using (var cmd = new NpgsqlCommand("SELECT tanggal_catatan, pegawai_id_pegawai, pendapatan_id_pendapatan FROM catatan_keuangan", conn))
+                using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
                 {
-                    using (var reader = cmd.ExecuteReader())
+                    connection.Open();
+
+                    using (NpgsqlDataAdapter adapter = new NpgsqlDataAdapter(query, connection))
                     {
-                        while (reader.Read())
-                        {
-                            DateTime tanggal = reader.GetDateTime(0);
-                            int pegawaiId = reader.GetInt32(1);
-                            int pendapatanId = reader.GetInt32(2);
-                            Console.WriteLine($"{tanggal} - {pegawaiId} - {pendapatanId}");
-                        }
+                        DataTable dataTable = new DataTable();
+                        adapter.Fill(dataTable);
+                        dataGridView1.DataSource = dataTable;
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message);
+            }
         }
 
-        public static void CreateFinancialRecord(int userId)
+        private void kryptonButton2_Click(object sender, EventArgs e)
         {
-            Console.Write("Masukkan tanggal (yyyy-mm-dd): ");
-            DateTime tanggal = DateTime.Parse(Console.ReadLine());
-
-            using (var conn = Database.GetConnection())
-            {
-                conn.Open();
-                using (var cmd = new NpgsqlCommand("INSERT INTO catatan_keuangan (tanggal_catatan, pegawai_id_pegawai, pendapatan_id_pendapatan) VALUES (@tanggal, @pegawaiId, @pendapatanId)", conn))
-                {
-                    cmd.Parameters.AddWithValue("tanggal", tanggal);
-                    cmd.Parameters.AddWithValue("pegawaiId", userId);
-                    cmd.Parameters.AddWithValue("pendapatanId", GetPendapatanIdByDate(tanggal));
-                    cmd.ExecuteNonQuery();
-                }
-            }
-            Console.WriteLine("Catatan keuangan berhasil dibuat.");
-        }
-
-        private static int GetPendapatanIdByDate(DateTime tanggal)
-        {
-            using (var conn = Database.GetConnection())
-            {
-                conn.Open();
-                using (var cmd = new NpgsqlCommand("SELECT id_pendapatan FROM pendapatan WHERE tanggal_pendapatan = @tanggal", conn))
-                {
-                    cmd.Parameters.AddWithValue("tanggal", tanggal);
-                    var result = cmd.ExecuteScalar();
-                    return result != null ? Convert.ToInt32(result) : 0;
-                }
-            }
+            TambahCatatan tc = new TambahCatatan(this);
+            tc.Show();
         }
     }
 }
