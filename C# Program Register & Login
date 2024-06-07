@@ -1,104 +1,54 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Npgsql;
 
-namespace kafekasir
+namespace KafeKasir
 {
-    class Program
+    public class User
     {
-        static Dictionary<string, string> pengguna = new Dictionary<string, string>(); // Menampung data username dan password
-        static string connectionString = "Host=localhost;Username=postgres;Password=22122004;Database=PBO"; // Replace with your connection string
-        static NpgsqlConnection connection = new NpgsqlConnection(connectionString);
-        static void Main(string[] args)
+        public static void Register()
         {
-            while (true)
-            {
-                Console.WriteLine("Menu:");
-                Console.WriteLine("1. Registrasi");
-                Console.WriteLine("2. Login");
-                Console.WriteLine("3. Keluar");
-                Console.Write("Pilih: ");
-
-                int pilihan = int.Parse(Console.ReadLine());
-
-                if (pilihan == 1)
-                {
-                    Registrasi();
-                }
-                else if (pilihan == 2)
-                {
-                    Login();
-                }
-                else if (pilihan == 3)
-                {
-                    break;
-                }
-                else
-                {
-                    Console.WriteLine("Pilihan tidak valid!");
-                }
-            }
-        }
-
-        static void Registrasi()
-        {
-
-
-
-            Console.Write("Masukkan username: ");
+            Console.Write("Username: ");
             string username = Console.ReadLine();
+            Console.Write("Password (integer): ");
+            int password = int.Parse(Console.ReadLine());
 
-            Console.Write("Masukkan password: ");
-            string password = Console.ReadLine();
-
-            if (pengguna.ContainsKey(username))
+            using (var conn = Database.GetConnection())
             {
-                Console.WriteLine("Username sudah ada!");
-                return;
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("INSERT INTO pegawai (username, password) VALUES (@username, @password)", conn))
+                {
+                    cmd.Parameters.AddWithValue("username", username);
+                    cmd.Parameters.AddWithValue("password", password);
+                    cmd.ExecuteNonQuery();
+                }
             }
-
-            pengguna.Add(username, password);
             Console.WriteLine("Registrasi berhasil!");
-
-            connection.Open(); // Open connection to database
-
-            string sql = "INSERT INTO pegawai (username, password) VALUES (@username, @password)";
-            NpgsqlCommand command = new NpgsqlCommand(sql, connection); // Replace with NpgsqlCommand
-            command.Parameters.AddWithValue("@username", username);
-            command.Parameters.AddWithValue("@password", password);
-
-            command.ExecuteNonQuery(); // Execute INSERT query
-
-            connection.Close(); // Close connection to database
-
-            Console.WriteLine("Registration successful!");
         }
 
-        static void Login()
+        public static bool Login(out int userId)
         {
-            Console.Write("Masukkan username: ");
+            Console.Write("Username: ");
             string username = Console.ReadLine();
+            Console.Write("Password (integer): ");
+            int password = int.Parse(Console.ReadLine());
 
-            Console.Write("Masukkan password: ");
-            string password = Console.ReadLine();
-
-            if (!pengguna.ContainsKey(username))
+            using (var conn = Database.GetConnection())
             {
-                Console.WriteLine("Username tidak ditemukan!");
-                return;
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("SELECT id_pegawai FROM pegawai WHERE username = @username AND password = @password", conn))
+                {
+                    cmd.Parameters.AddWithValue("username", username);
+                    cmd.Parameters.AddWithValue("password", password);
+                    var result = cmd.ExecuteScalar();
+                    if (result != null)
+                    {
+                        userId = Convert.ToInt32(result);
+                        return true;
+                    }
+                }
             }
-
-            if (pengguna[username] != password)
-            {
-                Console.WriteLine("Password salah!");
-                return;
-            }
-
-            Console.WriteLine("Login berhasil!");
+            userId = 0;
+            return false;
         }
-    
     }
 }
