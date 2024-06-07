@@ -1,0 +1,69 @@
+using System;
+using Npgsql;
+
+namespace KafeKasir
+{
+    public class Profile
+    {
+        public static void ViewProfile(int userId)
+        {
+            using (var conn = Database.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("SELECT username FROM pegawai WHERE id_pegawai = @id", conn))
+                {
+                    cmd.Parameters.AddWithValue("id", userId);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            Console.WriteLine($"Username: {reader.GetString(0)}");
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void ChangePassword(int userId)
+        {
+            Console.Write("Masukkan password lama: ");
+            int oldPassword = int.Parse(Console.ReadLine());
+            Console.Write("Masukkan password baru: ");
+            int newPassword = int.Parse(Console.ReadLine());
+
+            using (var conn = Database.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("UPDATE pegawai SET password = @newPassword WHERE id_pegawai = @id AND password = @oldPassword", conn))
+                {
+                    cmd.Parameters.AddWithValue("newPassword", newPassword);
+                    cmd.Parameters.AddWithValue("id", userId);
+                    cmd.Parameters.AddWithValue("oldPassword", oldPassword);
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    if (rowsAffected > 0)
+                    {
+                        Console.WriteLine("Password berhasil diubah.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Password lama salah.");
+                    }
+                }
+            }
+        }
+
+        public static void DeleteAccount(int userId)
+        {
+            using (var conn = Database.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("DELETE FROM pegawai WHERE id_pegawai = @id", conn))
+                {
+                    cmd.Parameters.AddWithValue("id", userId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            Console.WriteLine("Akun berhasil dihapus.");
+        }
+    }
+}
